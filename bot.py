@@ -5,41 +5,36 @@ import os
 TOKEN = os.getenv('TELEGRAM_TOKEN')
 CHAT_ID = os.getenv('TELEGRAM_CHAT_ID')
 
-# Kategori linki
-URL = "https://www.hepsiburada.com/laptop-notebook-dizustu-bilgisayarlar-c-98"
+# Amazon Fırsatları (Örnek: Çok Satanlar)
+URL = "https://www.amazon.com.tr/gp/bestsellers/computers/ref=zg_bs_nav_computers_0"
 
 def check_deals():
-    # Tarayıcı gibi görünmek için daha detaylı bilgiler ekledik
     headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
-        "Accept-Language": "tr-TR,tr;q=0.9,en-US;q=0.8,en;q=0.7",
-        "Referer": "https://www.google.com/"
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "Accept-Language": "tr-TR,tr;q=0.9"
     }
     
     try:
-        response = requests.get(URL, headers=headers, timeout=15)
-        print(f"Site Yanıt Kodu: {response.status_code}") # 200 ise sorun yok demektir
+        response = requests.get(URL, headers=headers)
+        print(f"Site Yanıt Kodu: {response.status_code}")
         
         soup = BeautifulSoup(response.content, "html.parser")
         
-        # Ürünleri yakalamaya çalışıyoruz
-        products = soup.find_all("li", {"class": "productListContent-zAP0Y5msy8SdbnEfjBca"})
+        # Amazon ürün kutularını bulalım
+        products = soup.find_all("div", {"id": "gridItemRoot"})
         
         if not products:
-            # Eğer ürün bulamazsa en azından botun yaşadığını haber ver
-            send_telegram("⚠️ Bot çalıştı ama Hepsiburada ürün listesini vermedi. Site yapısı değişmiş olabilir.")
+            send_telegram("⚠️ Amazon'da ürün bulunamadı, kodun güncellenmesi gerekebilir.")
             return
 
         for product in products[:3]:
-            try:
-                name = product.find("h3").text.strip()
-                link = "https://www.hepsiburada.com" + product.find("a")["href"]
-                send_telegram(f"🛍️ **Yeni Fırsat!**\n\n📦 {name}\n🔗 [Ürüne Git]({link})")
-            except:
-                continue
-                
+            name = product.find("div", {"class": "_cDE31_pbc-content_rdur2"}).text.strip()[:50] + "..."
+            link = "https://www.amazon.com.tr" + product.find("a", {"class": "a-link-normal"})["href"]
+            
+            send_telegram(f"🔥 **Amazon Fırsatı!**\n\n📦 {name}\n🔗 [Ürüne Git]({link})")
+            
     except Exception as e:
-        send_telegram(f"❌ Bir hata oluştu: {str(e)}")
+        print(f"Hata: {e}")
 
 def send_telegram(message):
     url = f"https://api.telegram.org/bot{TOKEN}/sendMessage"

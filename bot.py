@@ -1,35 +1,36 @@
 import requests
 import os
+import xml.etree.ElementTree as ET
 
 TOKEN = os.getenv('TELEGRAM_TOKEN')
 CHAT_ID = os.getenv('TELEGRAM_CHAT_ID')
 
 def get_deals():
-    # DonanımHaber'in daha basit ve hata vermeyen bir veri kaynağını kullanıyoruz
-    url = "https://firsat-api.donanimhaber.com/v1/firsatlar?sayfa=1&adet=5"
+    # Bu adres botlara özeldir, engellenmesi çok zordur
+    url = "https://www.donanimhaber.com/rss/sicakfirsatlar"
     headers = {"User-Agent": "Mozilla/5.0"}
     
     try:
         response = requests.get(url, headers=headers)
-        data = response.json() # Veriyi JSON olarak alıyoruz (daha güvenli)
+        # XML formatındaki veriyi okuyoruz
+        root = ET.fromstring(response.content)
         
-        firsatlar = data.get('firsatlar', [])
+        # En yeni 3 ürünü alıyoruz
+        items = root.findall("./channel/item")[:3]
         
-        if not firsatlar:
-            send_telegram("Şu an yeni fırsat bulunamadı.")
+        if not items:
+            send_telegram("Şu an yeni fırsat akışı boş.")
             return
 
-        for firsat in firsatlar[:3]: # En yeni 3 fırsat
-            baslik = firsat.get('baslik')
-            link = "https://www.donanimhaber.com" + firsat.get('url')
-            fiyat = firsat.get('fiyat', 'Fiyat belirtilmemiş')
+        for item in items:
+            title = item.find("title").text
+            link = item.find("link").text
             
-            msg = f"🔥 **SICAK FIRSAT**\n\n📦 {baslik}\n💰 Fiyat: {fiyat}\n\n🔗 [Ürünü Gör]({link})"
+            msg = f"🔥 **SICAK FIRSAT**\n\n📦 {title}\n\n🔗 [Ürünü Gör]({link})"
             send_telegram(msg)
             
     except Exception as e:
-        # Hata olursa ne olduğunu Telegram'dan görelim
-        send_telegram(f"Sistemde bir aksama oldu: {str(e)}")
+        send_telegram(f"Sistem hatası: {str(e)}")
 
 def send_telegram(message):
     url = f"https://api.telegram.org/bot{TOKEN}/sendMessage"

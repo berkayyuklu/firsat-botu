@@ -3,33 +3,40 @@ import os
 
 TOKEN = os.getenv('TELEGRAM_TOKEN')
 CHAT_ID = os.getenv('TELEGRAM_CHAT_ID')
+SEHIR = "Istanbul" # Buraya istediğin şehri Türkçe karakter olmadan yazabilirsin
 
-def get_finance():
-    # Bu kaynak altın ve dövizde çok daha kararlıdır
-    url = "https://api.genelpara.com/embed/para-birimleri.json"
+def get_weather():
+    # Hava durumu verisi için ücretsiz ve engelsiz bir kaynak
+    url = f"https://wttr.in/{SEHIR}?format=j1"
     
     try:
-        response = requests.get(url, timeout=10)
+        response = requests.get(url)
         data = response.json()
         
-        # Verileri doğrudan çekiyoruz
-        dolar = data.get('USD', {}).get('alis', '---')
-        euro = data.get('EUR', {}).get('alis', '---')
-        gram = data.get('GA', {}).get('alis', '---')
-        ceyrek = data.get('C', {}).get('alis', '---')
-        
+        current = data['current_condition'][0]
+        temp = current['temp_C']
+        desc = current['lang_tr'][0]['value'] if 'lang_tr' in current else current['weatherDesc'][0]['value']
+        feels_like = current['FeelsLikeC']
+        humidity = current['humidity']
+
+        emoji = "☀️"
+        if "rain" in desc.lower() or "yağmur" in desc.lower(): emoji = "🌧️"
+        elif "cloud" in desc.lower() or "bulut" in desc.lower(): emoji = "☁️"
+        elif "snow" in desc.lower() or "kar" in desc.lower(): emoji = "❄️"
+
         mesaj = (
-            f"💰 **GÜNCEL FİNANS VERİLERİ**\n\n"
-            f"💵 **Dolar:** {dolar} TL\n"
-            f"💶 **Euro:** {euro} TL\n"
-            f"🟡 **Gram Altın:** {gram} TL\n"
-            f"🪙 **Çeyrek Altın:** {ceyrek} TL"
+            f"🌍 **{SEHIR} Hava Durumu**\n\n"
+            f"{emoji} **Durum:** {desc}\n"
+            f"🌡️ **Sıcaklık:** {temp}°C\n"
+            f"🧥 **Hissedilen:** {feels_like}°C\n"
+            f"💧 **Nem:** %{humidity}\n\n"
+            f"🚀 İyi günler dilerim!"
         )
         
         send_telegram(mesaj)
         
     except Exception as e:
-        send_telegram("Veri şu an çekilemiyor, kaynak hatası.")
+        send_telegram(f"Hava durumu çekilemedi: {str(e)}")
 
 def send_telegram(message):
     url = f"https://api.telegram.org/bot{TOKEN}/sendMessage"
@@ -37,4 +44,4 @@ def send_telegram(message):
     requests.post(url, json=payload)
 
 if __name__ == "__main__":
-    get_finance()
+    get_weather

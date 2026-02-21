@@ -1,36 +1,38 @@
 import requests
 import os
-import xml.etree.ElementTree as ET
+import re
 
 TOKEN = os.getenv('TELEGRAM_TOKEN')
 CHAT_ID = os.getenv('TELEGRAM_CHAT_ID')
 
-def get_deals():
-    # Bu adres botlara özeldir, engellenmesi çok zordur
-    url = "https://www.donanimhaber.com/rss/sicakfirsatlar"
-    headers = {"User-Agent": "Mozilla/5.0"}
+def get_finance_data():
+    # Döviz ve Altın verilerini engelsiz bir kaynaktan çekiyoruz
+    url = "https://finans.truncgil.com/today.json"
     
     try:
-        response = requests.get(url, headers=headers)
-        # XML formatındaki veriyi okuyoruz
-        root = ET.fromstring(response.content)
+        response = requests.get(url)
+        data = response.json()
         
-        # En yeni 3 ürünü alıyoruz
-        items = root.findall("./channel/item")[:3]
-        
-        if not items:
-            send_telegram("Şu an yeni fırsat akışı boş.")
-            return
+        # Verileri ayıklıyoruz
+        dolar = data.get('USD', {}).get('Alış', 'Hata')
+        euro = data.get('EUR', {}).get('Alış', 'Hata')
+        gram_altin = data.get('Gram Altın', {}).get('Alış', 'Hata')
+        ceyrek_altin = data.get('Çeyrek Altın', {}).get('Alış', 'Hata')
+        guncelleme = data.get('Update_Date', 'Bilinmiyor')
 
-        for item in items:
-            title = item.find("title").text
-            link = item.find("link").text
-            
-            msg = f"🔥 **SICAK FIRSAT**\n\n📦 {title}\n\n🔗 [Ürünü Gör]({link})"
-            send_telegram(msg)
-            
+        mesaj = (
+            f"💰 **Günlük Finans Özeti**\n"
+            f"📅 {guncelleme}\n\n"
+            f"🇺🇸 **Dolar:** {dolar} TL\n"
+            f"🇪🇺 **Euro:** {euro} TL\n"
+            f"🟡 **Gram Altın:** {gram_altin} TL\n"
+            f"🪙 **Çeyrek Altın:** {ceyrek_altin} TL"
+        )
+        
+        send_telegram(mesaj)
+        
     except Exception as e:
-        send_telegram(f"Sistem hatası: {str(e)}")
+        send_telegram(f"Finans verisi çekilirken hata oluştu: {str(e)}")
 
 def send_telegram(message):
     url = f"https://api.telegram.org/bot{TOKEN}/sendMessage"
@@ -38,4 +40,4 @@ def send_telegram(message):
     requests.post(url, json=payload)
 
 if __name__ == "__main__":
-    get_deals()
+    get_finance_data()

@@ -1,32 +1,39 @@
 import requests
 import os
-import re
 
 TOKEN = os.getenv('TELEGRAM_TOKEN')
 CHAT_ID = os.getenv('TELEGRAM_CHAT_ID')
 
 def get_deals():
-    # DonanımHaber Sıcak Fırsatlar (Dış kütüphane gerektirmeyen yöntem)
-    url = "https://www.donanimhaber.com/rss/sicakfirsatlar"
+    # DonanımHaber'in daha basit ve hata vermeyen bir veri kaynağını kullanıyoruz
+    url = "https://firsat-api.donanimhaber.com/v1/firsatlar?sayfa=1&adet=5"
     headers = {"User-Agent": "Mozilla/5.0"}
     
     try:
         response = requests.get(url, headers=headers)
-        # XML içinden başlıkları ve linkleri basitçe cımbızla çekiyoruz (Regex)
-        titles = re.findall('<title><!\[CDATA\[(.*?)\]\]></title>', response.text)
-        links = re.findall('<link>(.*?)</link>', response.text)
+        data = response.json() # Veriyi JSON olarak alıyoruz (daha güvenli)
+        
+        firsatlar = data.get('firsatlar', [])
+        
+        if not firsatlar:
+            send_telegram("Şu an yeni fırsat bulunamadı.")
+            return
 
-        # İlk 3 tanesini gönder (İlk başlık genelde site adıdır, o yüzden 1'den başlıyoruz)
-        for i in range(1, 4):
-            msg = f"🔥 **FIRSAT:** {titles[i]}\n\n🔗 {links[i]}"
+        for firsat in firsatlar[:3]: # En yeni 3 fırsat
+            baslik = firsat.get('baslik')
+            link = "https://www.donanimhaber.com" + firsat.get('url')
+            fiyat = firsat.get('fiyat', 'Fiyat belirtilmemiş')
+            
+            msg = f"🔥 **SICAK FIRSAT**\n\n📦 {baslik}\n💰 Fiyat: {fiyat}\n\n🔗 [Ürünü Gör]({link})"
             send_telegram(msg)
             
     except Exception as e:
-        send_telegram(f"Hata oluştu: {str(e)}")
+        # Hata olursa ne olduğunu Telegram'dan görelim
+        send_telegram(f"Sistemde bir aksama oldu: {str(e)}")
 
 def send_telegram(message):
     url = f"https://api.telegram.org/bot{TOKEN}/sendMessage"
-    payload = {"chat_id": CHAT_ID, "text": message}
+    payload = {"chat_id": CHAT_ID, "text": message, "parse_mode": "Markdown"}
     requests.post(url, json=payload)
 
 if __name__ == "__main__":
